@@ -2,7 +2,7 @@ SRC_DIR=src
 HEADER_DIR=include
 OBJ_DIR=obj
 
-CC=gcc
+CC=mpicc # gcc
 CFLAGS=-O3 -I$(HEADER_DIR) -Wall
 LDFLAGS=
 
@@ -16,7 +16,7 @@ $(OBJ_DIR):
 	mkdir $(OBJ_DIR)
 
 $(OBJ_DIR)/%.o : $(SRC_DIR)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $^
+	$(CC) $(CFLAGS)  -c -o $@ $^ $(LDFLAGS)
 
 apm:$(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
