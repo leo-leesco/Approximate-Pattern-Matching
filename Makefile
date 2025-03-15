@@ -16,10 +16,10 @@ $(OBJ_DIR):
 	mkdir $(OBJ_DIR)
 
 $(OBJ_DIR)/%.o : $(SRC_DIR)/%.c
-	$(CC) $(CFLAGS)  -c -o $@ $^ $(LDFLAGS)
+	$(CC) -fopenmp $(CFLAGS)  -c -o $@ $^ $(LDFLAGS)
 
 apm:$(OBJ)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
+	$(CC) -fopenmp $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 clean:
 	rm -f apm $(OBJ) ; rmdir $(OBJ_DIR)

@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <mpi.h>
+#include <omp.h>
 
 #define APM_DEBUG 0
 
@@ -188,9 +189,12 @@ int main(int argc, char **argv)
         strncpy(pattern[i], argv[i + 3], (l + 1));
     }
 
-    printf("Approximate Pattern Mathing: "
-           "looking for %d pattern(s) in file %s w/ distance of %d\n",
-           nb_patterns, filename, approx_factor);
+    if (rank == 0)
+    {
+        printf("Approximate Pattern Mathing: "
+               "looking for %d pattern(s) in file %s w/ distance of %d\n",
+               nb_patterns, filename, approx_factor);
+    }
 
     buf = read_input_file(filename, &n_bytes);
     if (buf == NULL)
@@ -229,6 +233,7 @@ int main(int argc, char **argv)
     gettimeofday(&t1, NULL);
 
     /* Check each pattern one by one */
+    #pragma omp parallel for private(j) schedule(static)
     for (i = 0; i < nb_patterns; i++)
     {
         int size_pattern = strlen(pattern[i]);
@@ -242,7 +247,8 @@ int main(int argc, char **argv)
         {
             fprintf(stderr, "Error: unable to allocate memory for column (%ldB)\n",
                     (size_pattern + 1) * sizeof(int));
-            return 1;
+            // return 1;
+            continue;
         }
 
         /* Traverse the input data up to the end of the file */
@@ -277,8 +283,9 @@ int main(int argc, char **argv)
             }
         }
 
+#if APM_DEBUG
         printf("Rank %d: Number of matches for pattern <%s>: %d\n", rank, pattern[i], n_matches[i]);
-
+#endif
         free(column);
     }
 
@@ -295,14 +302,13 @@ int main(int argc, char **argv)
 
     duration = (t2.tv_sec - t1.tv_sec) + ((t2.tv_usec - t1.tv_usec) / 1e6);
 
-    printf("APM done in %lf s\n", duration);
-
     /*****
      * END MAIN LOOP
      ******/
 
     if (rank == 0)
     {
+        printf("APM done in %lf s\n", duration);
         for (i = 0; i < nb_patterns; i++)
         {
             printf("Number of matches for pattern <%s>: %d\n",
