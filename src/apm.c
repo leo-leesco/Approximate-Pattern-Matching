@@ -97,14 +97,23 @@ int levenshtein(char *s1, char *s2, int len, int *column)
     {
         column[0] = x;
         lastdiag = x - 1;
+
+        char s2_x_minus_1 = s2[x - 1];
+        int column_y_minus_1 = column[0];
+        int column_y = column[1];
+
         for (y = 1; y <= len; y++)
         {
-            olddiag = column[y];
-            column[y] = MIN3(
-                column[y] + 1,
-                column[y - 1] + 1,
-                lastdiag + (s1[y - 1] == s2[x - 1] ? 0 : 1));
+            olddiag = column_y;
+            column_y = MIN3(
+                column_y + 1,
+                column_y_minus_1 + 1,
+                lastdiag + (s1[y - 1] == s2_x_minus_1 ? 0 : 1));
             lastdiag = olddiag;
+
+            column[y] = column_y;
+            column_y_minus_1 = column_y;
+            column_y = column[y + 1];
         }
     }
     return (column[len]);
@@ -232,37 +241,80 @@ int main(int argc, char **argv)
     /* Timer start */
     gettimeofday(&t1, NULL);
 
-    /* Check each pattern one by one */
-    #pragma omp parallel for private(j) schedule(static)
+    int num_threads = 0;
+    #pragma omp parallel
+    {
+        #pragma omp single
+        num_threads = omp_get_num_threads();
+    }
+
+    int *column;
+    column = (int *)malloc((max_pattern_length + 1) * num_threads * sizeof(int));
+    if (column == NULL)
+    {
+        fprintf(stderr, "Error: unable to allocate memory for column (%ldB)\n",
+                (max_pattern_length + 1) * sizeof(int));
+        return 1;
+        // continue;
+    }
+    // omp_set_nested(1);
+
+    int pattern_sizes[nb_patterns];
     for (i = 0; i < nb_patterns; i++)
     {
-        int size_pattern = strlen(pattern[i]);
-        int *column;
+        pattern_sizes[i] = strlen(pattern[i]);
+    }
+    for (i = 0; i < nb_patterns; i++)
+    {
+        n_matches[i] = 0;
+    }
+
+    
+    /* Check each pattern one by one */
+    #pragma omp parallel for collapse(2) schedule(static) private(i, j)
+    for (i = 0; i < nb_patterns; i++)
+    {
+        // int size_pattern = strlen(pattern[i]);
 
         /* Initialize the number of matches to 0 */
-        n_matches[i] = 0;
+        // n_matches[i] = 0;
+        // int result = 0;
 
-        column = (int *)malloc((size_pattern + 1) * sizeof(int));
-        if (column == NULL)
-        {
-            fprintf(stderr, "Error: unable to allocate memory for column (%ldB)\n",
-                    (size_pattern + 1) * sizeof(int));
-            // return 1;
-            continue;
-        }
+        // int *column;
+        // column = (int *)malloc((size_pattern + 1) * sizeof(int));
+        // if (column == NULL)
+        // {
+        //     fprintf(stderr, "Error: unable to allocate memory for column (%ldB)\n",
+        //             (size_pattern + 1) * sizeof(int));
+        //     // return 1;
+        //     continue;
+        // }
 
         /* Traverse the input data up to the end of the file */
+        // #pragma omp parallel for schedule(static) reduction(+:result) private(j)
         for (j = 0; j < chunk_size; j++)
         {
+            int size_pattern = pattern_sizes[i];
+
             int distance = 0;
             int size;
+            int *my_column = column + omp_get_thread_num() * (max_pattern_length + 1);
+            // int *my_column = malloc((size_pattern + 1) * sizeof(int)); 
+            // int *my_column = column;
 
-#if APM_DEBUG
-            if (j % 100 == 0)
-            {
-                printf("Procesing byte %d (out of %d)\n", j, local_size);
-            }
-#endif
+// #if APM_DEBUG
+//         #pragma omp critical
+//         {
+//             printf("Thread %d out of %d threads\n", omp_get_thread_num(), omp_get_num_threads());
+//         }
+// #endif
+
+// #if APM_DEBUG
+//             if (j % 50000 == 0)
+//             {
+//                 printf("Procesing byte %d (out of %d) for pattern %d \n", j, local_size, i);
+//             }
+// #endif
 
             size = size_pattern;
             if (local_size - j < size_pattern)
@@ -272,21 +324,26 @@ int main(int argc, char **argv)
 
             if (size <= 0)
             {
-                break;
+                continue;
             }
 
-            distance = levenshtein(pattern[i], &local_buf[j], size, column);
+            distance = levenshtein(pattern[i], &local_buf[j], size, my_column);
+            // distance = 0;
 
             if (distance <= approx_factor)
             {
+                #pragma omp atomic
                 n_matches[i]++;
+                // result++;
             }
         }
+
+        // n_matches[i] = result;
 
 #if APM_DEBUG
         printf("Rank %d: Number of matches for pattern <%s>: %d\n", rank, pattern[i], n_matches[i]);
 #endif
-        free(column);
+        // free(column);
     }
 
     int *global_matches = NULL;
@@ -320,6 +377,7 @@ int main(int argc, char **argv)
     free(n_matches);
     free(buf);
     free(local_buf);
+    free(column);
     for (i = 0; i < nb_patterns; i++)
     {
         free(pattern[i]);
