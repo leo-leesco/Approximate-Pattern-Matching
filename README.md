@@ -14,6 +14,7 @@ Runs on big_chrY.fa and 3 patterns/
 source set_env.sh
 make
 cd test
+chmod +x apm_*
 python3 runner.py
 ```
 
