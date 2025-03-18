@@ -10,7 +10,7 @@ SRC= apm.c
 
 OBJ= $(OBJ_DIR)/apm.o
 
-all: $(OBJ_DIR) apm apm_parallel apm_cuda
+all: $(OBJ_DIR) apm apm_cuda apm_parallel
 
 $(OBJ_DIR):
 	mkdir $(OBJ_DIR)
