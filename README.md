@@ -11,7 +11,7 @@ OMP_NUM_THREADS=12 salloc -N 1 -n 6 mpirun ./apm_cuda 25 ./dna/big_chrY.fa CCAGT
 Runs on big_chrY.fa and 3 patterns/
 
 ```bash
-source set_env.h
+source set_env.sh
 make
 cd test
 python3 runner.py
