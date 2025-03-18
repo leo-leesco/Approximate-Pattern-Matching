@@ -15,7 +15,7 @@ def save_mock_data(filename, num_lines, line_length, seed=None):
 
 if __name__ == "__main__":
     filename = "big_chrY.fa"
-    num_lines = 100000  # Number of lines in the file
+    num_lines = 10_000_000  # Number of lines in the file
     line_length = 50  # Length of each DNA sequence per line
     seed = 42  # Change or set to None for true randomness
 
